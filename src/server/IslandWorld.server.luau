@@ -3,6 +3,7 @@
 -- Existing Workspace models are left untouched.
 local Workspace = game:GetService("Workspace")
 local Lighting = game:GetService("Lighting")
+local Players = game:GetService("Players")
 
 local old = Workspace:FindFirstChild("MutantIslandsGenerated")
 if old then old:Destroy() end
@@ -42,6 +43,7 @@ local function tree(parent, pos, scale, leaves)
     canopy.CanCollide=false
 end
 
+local starterSpawn
 for i,t in ipairs(themes) do
     local model=Instance.new("Model")
     model.Name=t.name
@@ -92,7 +94,34 @@ for i,t in ipairs(themes) do
         spawn.Color=Color3.fromRGB(87,203,131)
         spawn.Material=Enum.Material.Neon
         spawn.Parent=model
+        starterSpawn=spawn
     end
+end
+
+-- Existing spawn pads can take priority over a newly created SpawnLocation.
+-- Force both initial spawn and respawns to the safe starter island.
+if starterSpawn then
+    for _, descendant in ipairs(Workspace:GetDescendants()) do
+        if descendant:IsA("SpawnLocation") and descendant ~= starterSpawn then
+            descendant.Enabled = false
+        end
+    end
+    local function attachPlayer(player)
+        player.RespawnLocation = starterSpawn
+        local function placeCharacter(character)
+            local root = character:WaitForChild("HumanoidRootPart", 10)
+            if not root then return end
+            task.wait(0.15)
+            if character.Parent then
+                character:PivotTo(starterSpawn.CFrame * CFrame.new(0, 5, 0))
+                root.AssemblyLinearVelocity = Vector3.zero
+            end
+        end
+        player.CharacterAdded:Connect(placeCharacter)
+        if player.Character then task.defer(placeCharacter, player.Character) end
+    end
+    Players.PlayerAdded:Connect(attachPlayer)
+    for _, player in ipairs(Players:GetPlayers()) do attachPlayer(player) end
 end
 
 Lighting.ClockTime=13.5
